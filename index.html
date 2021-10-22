@@ -1,0 +1,218 @@
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Built Technologies Challenge</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/16.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/16.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/6.26.0/babel.min.js"></script>
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script type="text/babel">
+      const drawRequests = [
+        { drawId : 1, itemId : 2, amount : 750, effectiveDate : '11/15/2015'},
+        { drawId : 2, itemId : 1, amount : 2000, effectiveDate : '11/20/2015'},
+        { drawId : 3, itemId : 3, amount : 50000, effectiveDate : '10/5/2015'},
+        { drawId : 4, itemId : 3, amount : 60000, effectiveDate : '10/6/2015'},
+        { drawId : 5, itemId : 2, amount : 500, effectiveDate : '10/31/2015'},
+        { drawId : 6, itemId : 3, amount : 50000, effectiveDate : '10/7/2015'},
+        { drawId : 7, itemId : 2, amount : 1000, effectiveDate : '11/16/2015'},
+        { drawId : 8, itemId: 'nope', amount: 750, effectiveDate: '11/15/2015' },
+        { drawId : 9, itemId: 1, amount: 10 },
+        { drawId : 10, itemId: 2, amount: '100', effectiveDate: '10/31/2014' },
+        { drawId : 11, itemId: 3, amount: 1, effectiveDate: 'A long long time ago...' },
+        { drawId : 12, itemId: 1, amount: 100, effectiveDate: 10 / 31 / 2099 },
+        { drawId : 13, itemId: 1, amount: -100000, effectiveDate: '11/8/2015' },
+      ];
+
+      class Budget extends React.Component {
+        constructor(props) {
+          super(props)
+        }
+
+        state = {
+          amount : 126000,
+          balanceRemaining : 108500,
+          budgetItems : [
+            { itemId : 1, fundedToDate : 2500, originalAmount : 10000},
+            { itemId : 2, fundedToDate : 15000, originalAmount : 16000},
+            { itemId : 3, fundedToDate : 0, originalAmount : 100000},
+          ]
+        }
+
+        successfulDrawRequests = [];
+        erroringDrawRequests = [];
+        
+        componentDidMount() {
+            const { successfullyProcessed, errors } = this.processDraws(this.props.drawRequests);
+            this.successfulDrawRequests = successfullyProcessed;
+            this.erroringDrawRequests = errors;
+        }
+
+        /**
+         * Logic to validate keys of an incoming draw request
+         *
+         * @param {Object} drawItem drawItem to be validated
+         * @returns {Array} array of error messages, if any
+         */
+        validateDrawItem = (drawItem) => {
+            const validators = {
+                drawId: (val) => typeof val !== "number" ? "drawId is invalid. Not a number." : null,
+                itemId: (val) => {
+                    if (typeof val !== "number") return "itemId is invalid. Not a number";
+                    if (!this.state.budgetItems.find(item => item.itemId === val)) return "No budget item matching request itemId found.";
+                    return null;
+                },
+                amount: (val) => {
+                    if (typeof val !== "number") return "amount is invalid. Not a number";
+                    if (val <= 0) return "amount is invalid. Must be a positive value";
+                    return null;
+                },
+                effectiveDate: (val) => {
+                    if (typeof val !== "string" || (typeof val === "string" && !val.match(/(0?[1-9]|1[012])\/(0?[1-9]|[12][0-9]|3[01])\/\d{4}/g))) {
+                        return "effectiveDate is invalid. Must be a string matching MM/DD/YYYY or MM/D/YYYY";
+                    }
+                    return null;
+                },
+            };
+            const errors = [];
+
+            Object.keys(drawItem).forEach((key) => {
+                const validatorFunc = validators[key];
+                const errorMsg = validatorFunc(drawItem[key]);
+                if (errorMsg) errors.push(errorMsg);
+            });
+
+            return errors;
+        }
+
+        /**
+         * Creates updated copy of the component state. Tracks changes to the budget
+         * as a result of processed draw requests
+         *
+         * @param {Object} budget copy of this.state
+         * @param {Number} itemId id of the budget item that a draw request was just processed for
+         * @param {Number} amount dollar value of the processed draw request
+         * @returns {Object} updated copy of this.state
+         */
+        updateBudget = (budget, itemId, amount) => {
+            const newBudget = { ...budget };
+            const budgetItemIndex = newBudget.budgetItems.findIndex(item => item.itemId === itemId);
+            const updatedFunding = newBudget.budgetItems[budgetItemIndex].fundedToDate + amount;
+
+            newBudget.balanceRemaining -= amount;
+            newBudget.budgetItems[budgetItemIndex].fundedToDate = updatedFunding;
+
+            return newBudget;
+        }
+
+        /**
+         * Sorts array of draw requests by effective date
+         * @param {Array} drawRequests array of draw requests to be sorted
+         * @returns {Array} sorted draw requests
+         */
+        sortDrawRequests = (drawRequests) => {
+            return drawRequests.sort((a, b) => Date.parse(a.effectiveDate) - Date.parse(b.effectiveDate));
+        }
+
+        /**
+         * Determines if a draw request is valid based on drawable budget for a given
+         * budget item, and if so, processes the request
+         *
+         * @param {Array} drawRequests array of draw requests to be processed
+         * @returns {Object} object with arrays of successful draw requests and error
+         */
+        processDraws = (drawRequests) => {
+            let budgetState = { ...this.state };
+            const successfullyProcessed = [];
+            const errors = []
+            const sortedDrawRequests = this.sortDrawRequests(drawRequests);
+
+            sortedDrawRequests.forEach((request, index) => {
+                let validationErrors = this.validateDrawItem(request);
+
+                if (validationErrors.length < 1) {
+                    let budget = budgetState.budgetItems.find(item => item.itemId === request.itemId);
+                    let drawableAmount = budget.originalAmount - budget.fundedToDate;
+
+                    if (drawableAmount >= request.amount) {
+                        successfullyProcessed.push({
+                            drawId: request.drawId,
+                            order: index + 1,
+                        });
+                        budgetState = this.updateBudget(budgetState, request.itemId, request.amount);
+                    }
+                    else {
+                        errors.push({
+                            drawId: request.drawId,
+                            errorMessage: [`Processing this draw request will overdraft budget ${budget.itemId}`],
+                        });
+                    }
+                }
+                else {
+                    errors.push({
+                        drawId: request.drawId,
+                        errorMessage: validationErrors,
+                    });
+                }
+            });
+
+            this.setState({ ...budgetState });
+            return {
+                successfullyProcessed,
+                errors,
+            };
+        }
+
+        render = () => {
+            return (
+                <span>
+                    <div>
+                        Successes
+                        {this.successfulDrawRequests.map((success) => (
+                            <div>
+                                <span>
+                                    Draw ID: {success.drawId}
+                                </span>
+                                &nbsp;
+                                <span>
+                                    Order: {success.order}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                    <div>
+                        Errors
+                        {this.erroringDrawRequests.map((error) => (
+                            <div>
+                                <span>
+                                    Draw ID: {error.drawId}
+                                </span>
+                                &nbsp;
+                                <span>
+                                    Error Messages: {error.errorMessage.map((msg) => (
+                                        <div>{msg}</div>
+                                    ))}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </span>
+            );
+        }
+      }
+
+      class App extends React.Component {
+        render = () => { return this.props.children; }
+      }
+
+      ReactDOM.render(
+        <App>
+          <Budget drawRequests={drawRequests} />
+        </App>,
+        document.getElementById('root')
+      );
+    </script>
+  </body>
+</html>
