@@ -49,13 +49,13 @@ class BudgetDataStore {
     }
 
     /**
-     * Creates updated copy of the component state. Tracks changes to the budget
+     * Creates updated copy of the budget observable. Tracks changes to the budget
      * as a result of processed draw requests
      *
-     * @param {Object} budget copy of this.state
+     * @param {Object} budget copy of this.budget
      * @param {Number} itemId id of the budget item that a draw request was just processed for
      * @param {Number} amount dollar value of the processed draw request
-     * @returns {Object} updated copy of this.state
+     * @returns {Object} updated copy of this.budget
      */
     updateBudgetCopy = (budget: Budget, itemId: number, amount: number): Budget => {
         const newBudget = { ...budget };
@@ -167,7 +167,6 @@ class BudgetDataStore {
      * 
      * @returns {Promise}
      */
-    @action
     preload = async (): Promise<any> => {
         try {
             // mocking API calls and return list of draw requests
