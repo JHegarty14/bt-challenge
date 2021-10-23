@@ -47,3 +47,7 @@ Add the following data to drawRequests to trigger errors:
 Log a message for each BudgetItem that lists the order each Draw was processed in (a `console.log` is an appropriate way to display this message) or include this data in the return array.
 
 Note: it is safe to assume that the Budget and every budgetItem will never have a remaining balance below zero.
+
+### Self-Imposed Bonus 4
+
+Since I decided to tackle the React version of this challenge, I created a separate branch, `tryhard-branch`, to show how I approach constructing React applications and to play around with using Mobx + Typescript.
